@@ -1,0 +1,3 @@
+Word clouds based on plain text analysis and java identifiers (IntelliJ CE source code).
+<img src="https://github.com/dkandalov/d3_in_intellij/blob/master/screenshots/intellij-wordcloud.png?raw=true" alt="auto-revert screenshot" title="auto-revert screenshot" align="left" />
+<img src="https://github.com/dkandalov/d3_in_intellij/blob/master/screenshots/intellij-identifier-cloud.png?raw=true" alt="auto-revert screenshot" title="auto-revert screenshot" align="left" />
