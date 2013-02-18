@@ -22,6 +22,6 @@ registerAction("WordCloud", "ctrl alt shift T") { AnActionEvent event ->
 			event.dataContext,
 			JBPopupFactory.ActionSelectionAid.SPEEDSEARCH,
 			true
-	).showInBestPositionFor(event.dataContext)
+	).showCenteredInCurrentWindow(event.project)
 }
 show("reloaded")

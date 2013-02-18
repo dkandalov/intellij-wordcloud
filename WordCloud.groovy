@@ -7,7 +7,11 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.*
+import com.intellij.psi.PsiElement
+import com.intellij.psi.PsiIdentifier
+import com.intellij.psi.PsiManager
+import com.intellij.psi.PsiRecursiveElementVisitor
+import org.junit.Test
 
 import javax.swing.*
 
@@ -15,6 +19,7 @@ import static WordCloud.FileProcessing.*
 import static http.Util.restartHttpServer
 import static intellijeval.PluginUtil.show
 import static intellijeval.PluginUtil.showInConsole
+import static java.lang.Character.isUpperCase
 
 /**
  * User: dima
@@ -83,6 +88,46 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 		Map<String, Integer> wordOccurrencesFor(List<VirtualFile> files, ProgressIndicator indicator)
 	}
 
+	private static class TextualWordOccurrences implements WordCloudSource {
+
+		@Override Map<String, Integer> wordOccurrencesFor(List<VirtualFile> files, ProgressIndicator indicator) {
+			def wordOccurrences = new HashMap<String, Integer>().withDefault { 0 }
+
+			processRecursively(files) { VirtualFile file ->
+				if (indicator.canceled) return STOP
+				analyzeFile(file, wordOccurrences)
+				CONTINUE
+			}
+			wordOccurrences.entrySet().removeAll { it.key == "def" || it.key == "new" }
+			show(wordOccurrences)
+			wordOccurrences
+		}
+
+		private static void analyzeFile(VirtualFile file, wordOccurrences) {
+			if (file.isDirectory()) return
+			if (file.extension != "groovy" && file.extension != "java") return
+
+			def text = file.inputStream.readLines()
+
+			// drop apache license header
+			if (text.size() > 2 &&
+					text[0].contains("/*") &&
+					text[1].contains("Copyright 2000-2012 JetBrains s.r.o.")) {
+				text = text.drop(15)
+			}
+
+			text.each { line ->
+				if (line.startsWith("import")) return
+				line.split(/[\s!{}\[\]+-<>()\/\\,"'@&$=*\|]/).findAll{ !it.empty }.each { word ->
+					def subWords = splitByCamelHumps(word).collect{ splitByUnderscores(it.toLowerCase()) }.flatten()
+					subWords.each {
+						wordOccurrences.put(it, wordOccurrences[it] + 1)
+					}
+				}
+			}
+		}
+	}
+
 	private static class IdentifiersOccurrences implements WordCloudSource {
 		private final Project project
 
@@ -116,43 +161,6 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 		}
 	}
 
-	private static class TextualWordOccurrences implements WordCloudSource {
-
-		@Override Map<String, Integer> wordOccurrencesFor(List<VirtualFile> files, ProgressIndicator indicator) {
-			def wordOccurrences = new HashMap<String, Integer>().withDefault { 0 }
-
-			processRecursively(files) { VirtualFile file ->
-				if (indicator.canceled) return STOP
-				analyzeFile(file, wordOccurrences)
-				CONTINUE
-			}
-			wordOccurrences.entrySet().removeAll { it.key == "def" || it.key == "new" }
-			show(wordOccurrences)
-			wordOccurrences
-		}
-
-		private static void analyzeFile(VirtualFile file, wordOccurrences) {
-			if (file.isDirectory()) return
-			if (file.extension != "groovy" && file.extension != "java") return
-
-			def text = file.inputStream.readLines()
-
-			// drop apache license header
-			if (text.size() > 2 &&
-					text[0].contains("/*") &&
-					text[1].contains("Copyright 2000-2012 JetBrains s.r.o.")) {
-				text = text.drop(15)
-			}
-
-			text.each { line ->
-				if (line.startsWith("import")) return
-				line.split(/[\s!{}\[\]+-<>()\/\\,"'@&$=*]/).findAll { !it.empty }.each { word ->
-					wordOccurrences.put(word, wordOccurrences[word] + 1)
-				}
-			}
-		}
-	}
-
 	static class FileProcessing {
 		public static final STOP = "STOP"
 		public static final CONTINUE = null
@@ -167,4 +175,49 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 		}
 	}
 
+	private static List<String> splitByCamelHumps(String s) {
+		def words = []
+		def wordStart = 0
+		for (int i = 0; i < s.length() - 1; i++) {
+			char c = s.charAt(i)
+			char nextC = s.charAt(i + 1)
+			if (i != wordStart && isUpperCase(c) && !isUpperCase(nextC)) {
+				words << new String(s.substring(wordStart, i))
+				wordStart = i
+			}
+		}
+		words << new String(s.substring(wordStart))
+		words
+	}
+
+	private static List<String> splitByUnderscores(String s) {
+		def words = []
+		int i
+		while ((i = s.indexOf('_')) != -1) {
+			if (i > 0) words << new String(s.substring(0, i))
+			s = s.substring(i + 1)
+		}
+		if (s.length() > 0) words << new String(s)
+		words
+	}
+
+	@Test void splittingByUnderscores() {
+		assert splitByUnderscores("word") == ["word"]
+		assert splitByUnderscores("two_words") == ["two", "words"]
+		assert splitByUnderscores("more_than_two_words") == ["more", "than", "two", "words"]
+		assert splitByUnderscores("double__underscore") == ["double", "underscore"]
+		assert splitByUnderscores("_trailing_underscores_") == ["trailing", "underscores"]
+	}
+
+	@Test void splittingByCamelHumps() {
+		assert splitByCamelHumps("word") == ["word"]
+		assert splitByCamelHumps("twoWords") == ["two", "Words"]
+		assert splitByCamelHumps("moreThanTwoWords") == ["more", "Than", "Two", "Words"]
+
+		assert splitByCamelHumps("ClassNames") == ["Class", "Names"]
+
+		assert splitByCamelHumps("UPPERCASE") == ["UPPERCASE"]
+		assert splitByCamelHumps("isON") == ["isON"]
+		assert splitByCamelHumps("isAt") == ["is", "At"]
+	}
 }
