@@ -9,13 +9,16 @@ import static intellijeval.PluginUtil.show
 def thisPluginPath = pluginPath
 registerAction("WordCloud", "ctrl alt shift T") { AnActionEvent event ->
 	JBPopupFactory.instance.createActionGroupPopup(
-			"Word Cloud",
+			"Show Word Cloud",
 			new DefaultActionGroup().with {
 				add(new AnAction("Plain text") {
 					@Override void actionPerformed(AnActionEvent e) { WordCloud.showTextCloud(e.dataContext, thisPluginPath) }
 				})
 				add(new AnAction("Identifiers") {
 					@Override void actionPerformed(AnActionEvent e) { WordCloud.showIdentifiersCloud(e.dataContext, thisPluginPath) }
+				})
+				add(new AnAction("Open browser") {
+					@Override void actionPerformed(AnActionEvent e) { WordCloud.openBrowser() }
 				})
 				it
 			},

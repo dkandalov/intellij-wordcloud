@@ -1,4 +1,5 @@
 import com.intellij.ide.BrowserUtil
+import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.application.ApplicationManager
@@ -11,16 +12,14 @@ import com.intellij.psi.PsiElement
 import com.intellij.psi.PsiIdentifier
 import com.intellij.psi.PsiManager
 import com.intellij.psi.PsiRecursiveElementVisitor
+import http.Util
 import org.junit.Test
 
 import javax.swing.*
 
 import static WordCloud.FileProcessing.*
-import static http.Util.restartHttpServer
-import static intellijeval.PluginUtil.show
-import static intellijeval.PluginUtil.showInConsole
+import static intellijeval.PluginUtil.*
 import static java.lang.Character.isUpperCase
-
 /**
  * User: dima
  * Date: 18/11/2012
@@ -33,6 +32,11 @@ class WordCloud {
 	static def showIdentifiersCloud(DataContext dataContext, String pluginPath) {
 		Project project = PlatformDataKeys.PROJECT.getData(dataContext)
 		showCloud(new IdentifiersOccurrences(project), dataContext, pluginPath)
+	}
+
+	static def openBrowser() {
+		def server = getCachedBy("WordCloud_HttpServer"){it}
+		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
 	}
 
 	private static def showCloud(WordCloudSource wordCloudSource, DataContext dataContext, String pluginPath) {
@@ -59,9 +63,15 @@ class WordCloud {
 			}
 
 			@Override void onSuccess() {
-				def handler = { ["/words.json": wordsAsJSON].get(it) }
-				def server = restartHttpServer("WordCloud_HttpServer", pluginPath, handler, { it.printStackTrace() })
-				BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
+				ActionManager.instance.unregisterAction("wordCloudData")
+				getCachedBy("wordCloudData"){ prev -> ["/words.json": wordsAsJSON, "/files": files.join("\n")] }
+
+				def handler = { request ->
+					// TODO create and use getCachedBy() which doesn't reload action?
+					def data = ActionManager.instance.getAction("wordCloudData").value
+					data.get(request)
+				}
+				Util.startHttpServer("WordCloud_HttpServer", pluginPath, handler, { it.printStackTrace() })
 			}
 		}.queue()
 	}
@@ -84,6 +94,7 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 """
 	}
 
+
 	private interface WordCloudSource {
 		Map<String, Integer> wordOccurrencesFor(List<VirtualFile> files, ProgressIndicator indicator)
 	}
@@ -105,7 +116,8 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 
 		private static void analyzeFile(VirtualFile file, wordOccurrences) {
 			if (file.isDirectory()) return
-			if (file.extension != "groovy" && file.extension != "java") return
+			if (file.fileType.isBinary()) return
+//			if (file.extension != "groovy" && file.extension != "java") return
 
 			def text = file.inputStream.readLines()
 
@@ -118,7 +130,7 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 
 			text.each { line ->
 				if (line.startsWith("import")) return
-				line.split(/[\s!{}\[\]+-<>()\/\\,"'@&$=*\|]/).findAll{ !it.empty }.each { word ->
+				line.split(/[\s!{}\[\]+-<>()\/\\,"'@&$=*\|\?]/).findAll{ !it.empty }.each { word ->
 					def subWords = splitByCamelHumps(word).collect{ splitByUnderscores(it.toLowerCase()) }.flatten()
 					subWords.each {
 						wordOccurrences.put(it, wordOccurrences[it] + 1)

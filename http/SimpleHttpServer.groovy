@@ -9,11 +9,11 @@ class SimpleHttpServer {
 	int port
 	private HttpServer server
 
-	void start(int port = 8100, String pluginPath, Closure handler = {null}, Closure errorListener = {}) {
+	void start(int port = 8100, String pluginPath, Closure handler = {null}, Closure errorHandler = {}) {
 		this.port = port
 
 		server = HttpServer.create(new InetSocketAddress(port), 0)
-		server.createContext("/", new MyHandler(pluginPath, handler, errorListener))
+		server.createContext("/", new MyHandler(pluginPath, handler, errorHandler))
 		server.executor = Executors.newCachedThreadPool()
 		server.start()
 	}
@@ -24,13 +24,13 @@ class SimpleHttpServer {
 
 	private static class MyHandler implements HttpHandler {
 		private final Closure handler
-		private final Closure errorListener
+		private final Closure errorHandler
 		private final String pluginPath
 
-		MyHandler(String pluginPath, Closure handler, Closure errorListener) {
+		MyHandler(String pluginPath, Closure handler, Closure errorHandler) {
 			this.pluginPath = pluginPath
 			this.handler = handler
-			this.errorListener = errorListener
+			this.errorHandler = errorHandler
 		}
 
 		@Override void handle(HttpExchange exchange) {
@@ -51,7 +51,7 @@ class SimpleHttpServer {
 					}
 				} catch (Exception e) {
 					replyWithException(e)
-					errorListener.call(e)
+					errorHandler.call(e)
 				}
 			}
 		}
