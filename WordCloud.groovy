@@ -1,6 +1,4 @@
 import com.intellij.ide.BrowserUtil
-import com.intellij.openapi.actionSystem.DataContext
-import com.intellij.openapi.actionSystem.PlatformDataKeys
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
@@ -11,9 +9,8 @@ import com.intellij.psi.PsiRecursiveElementVisitor
 import http.Util
 import org.junit.Test
 
-import javax.swing.*
-
 import static WordCloud.FileProcessing.*
+import static com.intellij.notification.NotificationType.ERROR
 import static http.Util.*
 import static intellijeval.PluginUtil.*
 import static java.lang.Character.isUpperCase
@@ -23,47 +20,51 @@ import static java.lang.Character.isUpperCase
  */
 class WordCloud {
 	private static final String HTTP_SERVER = "WordCloud_HttpServer"
+	private static final String CURRENT_EDITOR_HTTP_SERVER = "WordCloud_CurrentEditorHttpServer"
 
-	static def showTextCloud(DataContext dataContext, String pluginPath) {
-		showCloud(new TextualWordOccurrences(), dataContext, pluginPath)
+	static def showWordCloudFor(List<VirtualFile> files, String pluginPath) {
+		def varName = "wordCloudData"
+		generateCloud(new TextualWordOccurrences(), files, varName) {
+			def requestHandler = { getGlobalVar(varName).get(it) }
+			def server = Util.restartHttpServer(HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
+			BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
+		}
 	}
 
-	static def showIdentifiersCloud(DataContext dataContext, String pluginPath) {
-		Project project = PlatformDataKeys.PROJECT.getData(dataContext)
-		showCloud(new IdentifiersOccurrences(project), dataContext, pluginPath)
+	static def updateCurrentEditorWordCloud(VirtualFile file, String pluginPath) {
+		def varName = "currentEditorWordCloudData"
+		generateCloud(new TextualWordOccurrences(), [file], varName) {
+			def requestHandler = { getGlobalVar(varName).get(it) }
+			Util.startHttpServerIfNotRunning(CURRENT_EDITOR_HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
+		}
 	}
 
-	static def openBrowser() {
-		def server = getGlobalVar(HTTP_SERVER)
+
+	static def openCurrentEditorBrowser() {
+		def server = getGlobalVar(CURRENT_EDITOR_HTTP_SERVER)
 		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
 	}
 
-	private static def showCloud(WordCloudSource wordCloudSource, DataContext dataContext, String pluginPath) {
-		List<VirtualFile> files = PlatformDataKeys.VIRTUAL_FILE_ARRAY.getData(dataContext).toList()
-		Project project = PlatformDataKeys.PROJECT.getData(dataContext)
+	// TODO abandoned for now
+//	static def showIdentifiersCloud(DataContext dataContext, String pluginPath) {
+//		Project project = PlatformDataKeys.PROJECT.getData(dataContext)
+//		showCloud(new IdentifiersOccurrences(project), dataContext, pluginPath)
+//	}
 
-		def createWordCloud = { ProgressIndicator indicator ->
+	private static def generateCloud(WordCloudSource wordCloudSource, List<VirtualFile> files, String resultGlobalVar, Closure callback) {
+		def createWordCloudAsJson = { ProgressIndicator indicator ->
 			runReadAction {
 				try {
-					Map wordOccurrences = wordCloudSource.wordOccurrencesFor(files, indicator)
-					String wordsAsJSON = convertToJSON(wordOccurrences)
-
-					SwingUtilities.invokeLater {
-						def output = wordOccurrences.entrySet().sort { it.value }.join("\n")
-						showInConsole(output, "wordcloud", project)
-					}
-
-					wordsAsJSON
+					convertToJSON(wordCloudSource.wordOccurrencesFor(files, indicator))
 				} catch (Exception e) {
-					showInConsole(e, project)
-					""
+					log(e, ERROR)
+					"aaaa"
 				}
 			}
 		}
-		doInBackground("Preparing word cloud...", true, createWordCloud) { String wordsAsJSON ->
-			setGlobalVar("wordCloudData", ["/words.json": wordsAsJSON, "/files": files.join("\n")])
-			def handler = { request -> getGlobalVar("wordCloudData")?.get(request) }
-			Util.startHttpServerIfNotRunning(HTTP_SERVER, pluginPath, handler, { it.printStackTrace() })
+		doInBackground("Preparing word cloud...", true, createWordCloudAsJson) { String wordsAsJSON ->
+			setGlobalVar(resultGlobalVar, ["/words.json": wordsAsJSON, "/files": files.join("\n")])
+			callback()
 		}
 	}
 
@@ -96,7 +97,7 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 			def wordOccurrences = new HashMap<String, Integer>().withDefault { 0 }
 
 			processRecursively(files) { VirtualFile file ->
-				if (indicator.canceled) return STOP
+				if (indicator?.canceled) return STOP
 				analyzeFile(file, wordOccurrences)
 				CONTINUE
 			}
