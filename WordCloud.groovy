@@ -58,14 +58,18 @@ class WordCloud {
 					convertToJSON(wordCloudSource.wordOccurrencesFor(files, indicator))
 				} catch (Exception e) {
 					log(e, ERROR)
-					"aaaa"
+					""
 				}
 			}
 		}
 		doInBackground("Preparing word cloud...", true, createWordCloudAsJson) { String wordsAsJSON ->
-			setGlobalVar(resultGlobalVar, ["/words.json": wordsAsJSON, "/files": files.join("\n")])
+			setGlobalVar(resultGlobalVar, ["/words.json": wordsAsJSON, "/files.json": convertToJSON(files)])
 			callback()
 		}
+	}
+
+	static String convertToJSON(List<VirtualFile> files) {
+		"{\"files\": [" + files.collect{'"' + it.path + '"'}.join(",") + "]}"
 	}
 
 	static String convertToJSON(Map wordOccurrences) {

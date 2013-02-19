@@ -41,7 +41,6 @@ class Util {
 				try {
 					server.start(port, pluginPath, handler, errorHandler)
 					started = true
-					intellijeval.PluginUtil.show(port)
 					break
 				} catch (BindException ignore) {
 				}

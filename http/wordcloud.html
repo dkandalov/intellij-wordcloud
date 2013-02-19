@@ -7,21 +7,35 @@
     var width = 1200;
     var height = 900;
 
-    d3.json("words.json", function(data) {
-        d3.layout.cloud()
-                .timeInterval(10)
-                .size([width, height])
-                .font("Impact")
-                .fontSize(function(d) { return d.size; })
-                .rotate(function(d) { return 0; })
-                .words(data.words.map(function(d) {
-                    return {text: d.text, size: d.size};
-                }))
-                .on("end", draw)
-                .start();
-    });
+    setTimeout(loadJson, 3);
+
+    var lastFiles = [];
+
+    function loadJson() {
+        d3.json("files.json", function(data) {
+            if (!arraysEqual(lastFiles, data.files)) {
+                lastFiles = data.files;
+
+                d3.json("words.json", function(data) {
+                    d3.layout.cloud()
+                            .timeInterval(10)
+                            .size([width, height])
+                            .font("Impact")
+                            .fontSize(function(d) { return d.size; })
+                            .rotate(function(d) { return 0; })
+                            .words(data.words.map(function(d) {
+                                return {text: d.text, size: d.size};
+                            }))
+                            .on("end", draw)
+                            .start();
+                });
+            }
+        });
+        setTimeout(loadJson, 250);
+    }
 
     function draw(words) {
+        d3.select("svg").remove();
         d3.select("body").append("svg")
                 .attr("width", width)
                 .attr("height", height)
@@ -41,5 +55,17 @@
                     return "translate(" + [d.x, d.y] + ")rotate(" + d.rotate + ")";
                 })
                 .text(function(d) { return d.text; });
+    }
+
+    // borrowed from http://stackoverflow.com/questions/4025893/how-to-check-identical-array-in-most-efficient-way
+    function arraysEqual(arr1, arr2) {
+        if(arr1.length !== arr2.length)
+            return false;
+        for(var i = arr1.length; i--;) {
+            if(arr1[i] !== arr2[i])
+                return false;
+        }
+
+        return true;
     }
 </script>
