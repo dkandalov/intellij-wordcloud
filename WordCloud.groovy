@@ -1,11 +1,7 @@
 import com.intellij.ide.BrowserUtil
-import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.DataContext
 import com.intellij.openapi.actionSystem.PlatformDataKeys
-import com.intellij.openapi.application.ApplicationManager
-import com.intellij.openapi.progress.PerformInBackgroundOption
 import com.intellij.openapi.progress.ProgressIndicator
-import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.vfs.VirtualFile
 import com.intellij.psi.PsiElement
@@ -18,6 +14,7 @@ import org.junit.Test
 import javax.swing.*
 
 import static WordCloud.FileProcessing.*
+import static http.Util.*
 import static intellijeval.PluginUtil.*
 import static java.lang.Character.isUpperCase
 /**
@@ -25,6 +22,8 @@ import static java.lang.Character.isUpperCase
  * Date: 18/11/2012
  */
 class WordCloud {
+	private static final String HTTP_SERVER = "WordCloud_HttpServer"
+
 	static def showTextCloud(DataContext dataContext, String pluginPath) {
 		showCloud(new TextualWordOccurrences(), dataContext, pluginPath)
 	}
@@ -35,45 +34,37 @@ class WordCloud {
 	}
 
 	static def openBrowser() {
-		def server = getCachedBy("WordCloud_HttpServer"){it}
+		def server = getGlobalVar(HTTP_SERVER)
 		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
 	}
 
 	private static def showCloud(WordCloudSource wordCloudSource, DataContext dataContext, String pluginPath) {
-		String wordsAsJSON = ""
 		List<VirtualFile> files = PlatformDataKeys.VIRTUAL_FILE_ARRAY.getData(dataContext).toList()
 		Project project = PlatformDataKeys.PROJECT.getData(dataContext)
 
-		new Task.Backgroundable(project, "Preparing word cloud...", true, PerformInBackgroundOption.ALWAYS_BACKGROUND) {
-			@Override void run(ProgressIndicator indicator) {
-				ApplicationManager.application.runReadAction {
-					try {
-						Map wordOccurrences = wordCloudSource.wordOccurrencesFor(files, indicator)
+		def createWordCloud = { ProgressIndicator indicator ->
+			runReadAction {
+				try {
+					Map wordOccurrences = wordCloudSource.wordOccurrencesFor(files, indicator)
+					String wordsAsJSON = convertToJSON(wordOccurrences)
 
-						wordsAsJSON = convertToJSON(wordOccurrences)
-
-						SwingUtilities.invokeLater{
-							def output = wordOccurrences.entrySet().sort{it.value}.join("\n")
-							showInConsole(output, project)
-						}
-					} catch (Exception e) {
-						showInConsole(e, project)
+					SwingUtilities.invokeLater {
+						def output = wordOccurrences.entrySet().sort { it.value }.join("\n")
+						showInConsole(output, "wordcloud", project)
 					}
+
+					wordsAsJSON
+				} catch (Exception e) {
+					showInConsole(e, project)
+					""
 				}
 			}
-
-			@Override void onSuccess() {
-				ActionManager.instance.unregisterAction("wordCloudData")
-				getCachedBy("wordCloudData"){ prev -> ["/words.json": wordsAsJSON, "/files": files.join("\n")] }
-
-				def handler = { request ->
-					// TODO create and use getCachedBy() which doesn't reload action?
-					def data = ActionManager.instance.getAction("wordCloudData").value
-					data.get(request)
-				}
-				Util.startHttpServer("WordCloud_HttpServer", pluginPath, handler, { it.printStackTrace() })
-			}
-		}.queue()
+		}
+		doInBackground("Preparing word cloud...", true, createWordCloud) { String wordsAsJSON ->
+			setGlobalVar("wordCloudData", ["/words.json": wordsAsJSON, "/files": files.join("\n")])
+			def handler = { request -> getGlobalVar("wordCloudData")?.get(request) }
+			Util.startHttpServerIfNotRunning(HTTP_SERVER, pluginPath, handler, { it.printStackTrace() })
+		}
 	}
 
 	static String convertToJSON(Map wordOccurrences) {

@@ -28,3 +28,4 @@ registerAction("WordCloud", "ctrl alt shift T") { AnActionEvent event ->
 	).showCenteredInCurrentWindow(event.project)
 }
 show("reloaded")
+
