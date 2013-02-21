@@ -77,12 +77,14 @@ class WordCloud {
 
 		def min = wordOccurrences.min { it.value }.value
 		def max = wordOccurrences.max { it.value }.value
+        def range = (max != min ? max - min : 1)
 		def normalizedSizeOf = { entry ->
 			def word = entry.key
 			def size = entry.value
 			if (word.size() < 5) size += (max * 0.3) // this is to make shorter words more noticeable
 
-			Math.round((double) 5 + ((size - min) * 75 / (max - min)))
+
+            Math.round((double) 5 + ((size - min) * 75 / range))
 		}
 		"""{"words": [
 ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' + it.key + '", "size": ' + normalizedSizeOf(it) + '}' }.join(",\n")}
@@ -106,7 +108,6 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 				CONTINUE
 			}
 			wordOccurrences.entrySet().removeAll { it.key == "def" || it.key == "new" }
-			show(wordOccurrences)
 			wordOccurrences
 		}
 
