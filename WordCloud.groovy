@@ -45,12 +45,6 @@ class WordCloud {
 		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
 	}
 
-	// TODO abandoned for now
-//	static def showIdentifiersCloud(DataContext dataContext, String pluginPath) {
-//		Project project = PlatformDataKeys.PROJECT.getData(dataContext)
-//		showCloud(new IdentifiersOccurrences(project), dataContext, pluginPath)
-//	}
-
 	private static def generateCloud(WordCloudSource wordCloudSource, List<VirtualFile> files, String resultGlobalVar, Closure callback) {
 		def createWordCloudAsJson = { ProgressIndicator indicator ->
 			runReadAction {
@@ -112,6 +106,7 @@ ${wordOccurrences.entrySet().sort{ -it.value }.take(600).collect { '{"text": "' 
 		}
 
 		private static void analyzeFile(VirtualFile file, wordOccurrences) {
+			if (file == null) return
 			if (file.isDirectory()) return
 			if (file.fileType.isBinary()) return
 //			if (file.extension != "groovy" && file.extension != "java") return

@@ -2,6 +2,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.fileEditor.FileEditorManagerAdapter
 import com.intellij.openapi.fileEditor.FileEditorManagerEvent
 import com.intellij.openapi.project.Project
@@ -10,25 +11,32 @@ import com.intellij.util.messages.MessageBusConnection
 import http.Util
 
 import static com.intellij.openapi.fileEditor.FileEditorManagerListener.FILE_EDITOR_MANAGER
+import static intellijeval.PluginUtil.currentFileIn
 import static intellijeval.PluginUtil.registerAction
 import static intellijeval.PluginUtil.show
 
+boolean trackCurrentFile = false
 String thisPluginPath = pluginPath
 registerAction("WordCloud", "ctrl alt shift T") { AnActionEvent event ->
 	JBPopupFactory.instance.createActionGroupPopup(
-			"Show Word Cloud",
+			"Word Cloud",
 			new DefaultActionGroup().with {
-				add(new AnAction("Plain text") {
+				add(new AnAction("Show word cloud for selected files/packages") {
 					@Override void actionPerformed(AnActionEvent actionEvent) {
 						def files = PlatformDataKeys.VIRTUAL_FILE_ARRAY.getData(actionEvent.dataContext).toList()
 						WordCloud.showWordCloudFor(files, thisPluginPath)
 					}
 				})
-//				add(new AnAction("Identifiers") {
-//					@Override void actionPerformed(AnActionEvent e) { WordCloud.showIdentifiersCloud(e.dataContext, thisPluginPath) }
-//				})
-				add(new AnAction("Open browser") {
-					@Override void actionPerformed(AnActionEvent e) { WordCloud.openCurrentEditorBrowser() }
+				add(new Separator())
+				add(new AnAction("Track opened file and build word cloud for it") {
+					@Override void actionPerformed(AnActionEvent e) {
+						// TODO
+					}
+				})
+				add(new AnAction("Show word cloud for currently open file") {
+					@Override void actionPerformed(AnActionEvent e) {
+						WordCloud.openCurrentEditorBrowser()
+					}
 				})
 				it
 			},
@@ -37,11 +45,14 @@ registerAction("WordCloud", "ctrl alt shift T") { AnActionEvent event ->
 			true
 	).showCenteredInCurrentWindow(event.project)
 }
+show("Loaded WordCloud action<br/>Use Ctrl+Alt+Shift+T to open popup window")
+
 
 def project = event.project
 Util.changeGlobalVar("editorTracker") { oldTracker ->
 	oldTracker?.stop()
-	new EditorTracker(project, thisPluginPath).start()
+	if (trackCurrentFile)
+		new EditorTracker(project, thisPluginPath).start()
 }
 
 class EditorTracker {
@@ -55,6 +66,8 @@ class EditorTracker {
 	}
 
 	def start() {
+		WordCloud.updateCurrentEditorWordCloud(currentFileIn(project), thisPluginPath)
+
 		connection = project.messageBus.connect()
 		connection.subscribe(FILE_EDITOR_MANAGER, new FileEditorManagerAdapter() {
 			@Override void selectionChanged(FileEditorManagerEvent event) {
@@ -71,5 +84,4 @@ class EditorTracker {
 	}
 }
 
-show("reloaded")
 
