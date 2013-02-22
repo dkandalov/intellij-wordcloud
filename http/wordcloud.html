@@ -12,11 +12,11 @@
     var lastFiles = [];
 
     function loadJson() {
-        d3.json("files.json", function(data) {
+        d3.json("static_cloud/files.json", function(data) {
             if (!arraysEqual(lastFiles, data.files)) {
                 lastFiles = data.files;
 
-                d3.json("words.json", function(data) {
+                d3.json("static_cloud/words.json", function(data) {
                     d3.layout.cloud()
                             .timeInterval(10)
                             .size([width, height])

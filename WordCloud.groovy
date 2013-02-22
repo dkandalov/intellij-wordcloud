@@ -23,19 +23,23 @@ class WordCloud {
 	private static final String CURRENT_EDITOR_HTTP_SERVER = "WordCloud_CurrentEditorHttpServer"
 
 	static def showWordCloudFor(List<VirtualFile> files, String pluginPath) {
-		def varName = "wordCloudData"
-		generateCloud(new TextualWordOccurrences(), files, varName) {
-			def requestHandler = { getGlobalVar(varName).get(it) }
+		generateCloud(new TextualWordOccurrences(), files) { String wordOccurrencesAsJSON ->
+			setGlobalVar("wordCloudData", [
+					"/static_cloud/words.json": wordOccurrencesAsJSON,
+					"/static_cloud/files.json": convertToJSON(files)])
+			def requestHandler = { getGlobalVar("wordCloudData").get(it) }
 			def server = Util.restartHttpServer(HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
-			BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
+			BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html?static_cloud") // TODO
 		}
 	}
 
 	static def updateCurrentEditorWordCloud(VirtualFile file, String pluginPath) {
-		def varName = "currentEditorWordCloudData"
-		generateCloud(new TextualWordOccurrences(), [file], varName) {
-			def requestHandler = { getGlobalVar(varName).get(it) }
-			Util.startHttpServerIfNotRunning(CURRENT_EDITOR_HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
+		generateCloud(new TextualWordOccurrences(), [file]) { String wordOccurrencesAsJSON ->
+			setGlobalVar("currentEditorWordCloudData", [
+					"live_cloud/words.json": wordOccurrencesAsJSON,
+					"live_cloud/files.json": convertToJSON([file])])
+			def requestHandler = { getGlobalVar("currentEditorWordCloudData").get(it) }
+			Util.restartHttpServer(HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
 		}
 	}
 
@@ -45,7 +49,7 @@ class WordCloud {
 		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
 	}
 
-	private static def generateCloud(WordCloudSource wordCloudSource, List<VirtualFile> files, String resultGlobalVar, Closure callback) {
+	private static def generateCloud(WordCloudSource wordCloudSource, List<VirtualFile> files, Closure whenDone) {
 		def createWordCloudAsJson = { ProgressIndicator indicator ->
 			runReadAction {
 				try {
@@ -56,10 +60,7 @@ class WordCloud {
 				}
 			}
 		}
-		doInBackground("Preparing word cloud...", true, createWordCloudAsJson) { String wordsAsJSON ->
-			setGlobalVar(resultGlobalVar, ["/words.json": wordsAsJSON, "/files.json": convertToJSON(files)])
-			callback()
-		}
+		doInBackground("Preparing word cloud...", true, createWordCloudAsJson, whenDone)
 	}
 
 	static String convertToJSON(List<VirtualFile> files) {
