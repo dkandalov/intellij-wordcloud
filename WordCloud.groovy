@@ -20,7 +20,6 @@ import static java.lang.Character.isUpperCase
  */
 class WordCloud {
 	private static final String HTTP_SERVER = "WordCloud_HttpServer"
-	private static final String CURRENT_EDITOR_HTTP_SERVER = "WordCloud_CurrentEditorHttpServer"
 
 	static def showWordCloudFor(List<VirtualFile> files, String pluginPath) {
 		generateCloud(new TextualWordOccurrences(), files) { String wordOccurrencesAsJSON ->
@@ -29,15 +28,15 @@ class WordCloud {
 					"/static_cloud/files.json": convertToJSON(files)])
 			def requestHandler = { getGlobalVar("wordCloudData").get(it) }
 			def server = Util.restartHttpServer(HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
-			BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html?static_cloud") // TODO
+			BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html?static_cloud")
 		}
 	}
 
 	static def updateCurrentEditorWordCloud(VirtualFile file, String pluginPath) {
 		generateCloud(new TextualWordOccurrences(), [file]) { String wordOccurrencesAsJSON ->
 			setGlobalVar("currentEditorWordCloudData", [
-					"live_cloud/words.json": wordOccurrencesAsJSON,
-					"live_cloud/files.json": convertToJSON([file])])
+					"/live_cloud/words.json": wordOccurrencesAsJSON,
+					"/live_cloud/files.json": convertToJSON([file])])
 			def requestHandler = { getGlobalVar("currentEditorWordCloudData").get(it) }
 			Util.restartHttpServer(HTTP_SERVER, pluginPath, requestHandler, { log(it, ERROR) })
 		}
@@ -45,8 +44,8 @@ class WordCloud {
 
 
 	static def openCurrentEditorBrowser() {
-		def server = getGlobalVar(CURRENT_EDITOR_HTTP_SERVER)
-		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html")
+		def server = getGlobalVar(HTTP_SERVER)
+		if (server != null) BrowserUtil.launchBrowser("http://localhost:${server.port}/wordcloud.html?live_cloud")
 	}
 
 	private static def generateCloud(WordCloudSource wordCloudSource, List<VirtualFile> files, Closure whenDone) {

@@ -40,7 +40,8 @@ class SimpleHttpServer {
 					if (handlerResponse != null) {
 						replyWithText(handlerResponse.toString())
 					} else if (requestURI.startsWith("/") && requestURI.size() > 1) {
-						def file = new File(this.pluginPath + "/http" + "${requestURI.toString()}")
+						def request = requestURI.toString().replaceAll("\\?.*", "")
+						def file = new File(this.pluginPath + "/http" + "${request}")
 						if (!file.exists()) {
 							replyNotFound()
 						} else {

@@ -7,16 +7,17 @@
     var width = 1200;
     var height = 900;
 
-    setTimeout(loadJson, 3);
-
     var lastFiles = [];
+    var cloudType = window.location.search.replace( "?", "" );
+
+    loadJson();
 
     function loadJson() {
-        d3.json("static_cloud/files.json", function(data) {
+        d3.json(cloudType  + "/files.json", function(data) {
             if (!arraysEqual(lastFiles, data.files)) {
                 lastFiles = data.files;
 
-                d3.json("static_cloud/words.json", function(data) {
+                d3.json(cloudType + "/words.json", function(data) {
                     d3.layout.cloud()
                             .timeInterval(10)
                             .size([width, height])
@@ -31,7 +32,9 @@
                 });
             }
         });
-        setTimeout(loadJson, 250);
+        if (cloudType == "live_cloud") {
+            setTimeout(loadJson, 250);
+        }
     }
 
     function draw(words) {
