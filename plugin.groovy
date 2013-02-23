@@ -18,7 +18,7 @@ boolean trackCurrentFile = false
 String thisPluginPath = pluginPath
 
 def wordCloudActions = new DefaultActionGroup("Word Cloud", true).with {
-	add(new AnAction("Show for selected files/packages") {
+	add(new AnAction("Show cloud for selected file/package") {
 		@Override void actionPerformed(AnActionEvent actionEvent) {
 			def files = PlatformDataKeys.VIRTUAL_FILE_ARRAY.getData(actionEvent.dataContext).toList()
 			WordCloud.showWordCloudFor(files, thisPluginPath)
