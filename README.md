@@ -1,7 +1,7 @@
 What is this?
 =============
 
-This is a plugin for [intellij-eval](https://github.com/dkandalov/intellij_eval) plugin. It can:
+This is a plugin for [live-plugin](https://github.com/dkandalov/live-plugin) plugin. It can:
  - show word cloud for selected file/package
  - track currently open file and update word cloud automatically
 
@@ -16,7 +16,7 @@ See also [Code Words](https://github.com/npryce/code-words) by Nat Pryce.
 
 How to install?
 ===============
- - install [intellij-eval](https://github.com/dkandalov/intellij_eval) plugin
+ - install [live-plugin](https://github.com/dkandalov/live-plugin) plugin
  - in "Plugins" toolwindow choose "Add Plugin -> Plugin from Git" and use this repository address
  - in "Plugins" toolwindow run "wordcloud" plugin
 
