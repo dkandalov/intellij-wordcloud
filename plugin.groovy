@@ -11,7 +11,7 @@ import com.intellij.util.messages.MessageBusConnection
 import http.Util
 
 import static com.intellij.openapi.fileEditor.FileEditorManagerListener.FILE_EDITOR_MANAGER
-import static intellijeval.PluginUtil.*
+import static liveplugin.PluginUtil.*
 
 
 boolean trackCurrentFile = false
@@ -65,7 +65,9 @@ registerAction("WordCloud", "ctrl alt shift T") { AnActionEvent event ->
 			true
 	).showCenteredInCurrentWindow(event.project)
 }
-show("Loaded WordCloud action<br/>Use Ctrl+Alt+Shift+T to open popup window<br/>or Main Menu -> Tools -> Word Cloud")
+if (!isIdeStartup) {
+	show("Loaded WordCloud action<br/>Use Ctrl+Alt+Shift+T to open popup window<br/>or Main Menu -> Tools -> Word Cloud")
+}
 
 
 

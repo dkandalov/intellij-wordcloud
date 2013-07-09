@@ -12,12 +12,9 @@ import org.junit.Test
 import static WordCloud.FileProcessing.*
 import static com.intellij.notification.NotificationType.ERROR
 import static http.Util.*
-import static intellijeval.PluginUtil.*
+import static liveplugin.PluginUtil.*
 import static java.lang.Character.isUpperCase
-/**
- * User: dima
- * Date: 18/11/2012
- */
+
 class WordCloud {
 	private static final String HTTP_SERVER = "WordCloud_HttpServer"
 
@@ -71,13 +68,11 @@ class WordCloud {
 
 		def min = wordOccurrences.min { it.value }.value
 		def max = wordOccurrences.max { it.value }.value
-        def range = (max != min ? max - min : 1)
+    def range = (max != min ? max - min : 1)
 		def normalizedSizeOf = { entry ->
 			def word = entry.key
 			def size = entry.value
 			if (word.size() < 5) size += (max * 0.3) // this is to make shorter words more noticeable
-
-
             Math.round((double) 5 + ((size - min) * 75 / range))
 		}
 		"""{"words": [
